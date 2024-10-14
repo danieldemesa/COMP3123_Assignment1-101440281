@@ -1,13 +1,52 @@
-const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const express = require('express');
+const UserModel = require('../models/user');
 
-const userSchema = new mongoose.Schema({
-    username: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    created_at: { type: Date, default: Date.now },
-    updated_at: { type: Date, default: Date.now }
+const routes = express.Router();
+
+// User Signup
+routes.post('/signup', async (req, res) => {
+    try {
+        const newUser = new UserModel({
+            ...req.body
+        });
+        await newUser.save();
+        console.log("New User created: " + newUser); // Removed the separator
+        res.status(201).send(newUser);
+    } catch (error) {
+        res.status(500).send(error);
+    }
 });
 
-const User = mongoose.model('User', userSchema);
+// User Login
+routes.post('/login', async (req, res) => {
+    const { email, password } = req.body; 
 
-module.exports = User;
+    try {
+        const user = await UserModel.findOne({ email: email });
+        if (user) {
+            const isPasswordValid = await bcrypt.compare(password, user.password);
+            if (isPasswordValid) {
+                console.log("USER LOGGED IN: " + user);
+                res.status(200).send({
+                    message: "Login successful",
+                    user: { username: user.username, email: user.email }
+                });
+            } else {
+                res.status(400).send({
+                    status: false,
+                    message: 'Invalid Username and/or password'
+                });
+            }
+        } else {
+            res.status(400).send({
+                status: false,
+                message: 'Invalid Username and/or password'
+            });
+        }
+    } catch (error) {
+        res.status(500).send(error);
+    }
+});
+
+module.exports = routes;
